@@ -8,6 +8,16 @@ const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 100);
 const requestWindows = new Map();
 
+const cleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [ip, value] of requestWindows.entries()) {
+    if (now - value.windowStart >= RATE_LIMIT_WINDOW_MS) {
+      requestWindows.delete(ip);
+    }
+  }
+}, RATE_LIMIT_WINDOW_MS);
+cleanupTimer.unref();
+
 function parseId(value) {
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
@@ -23,12 +33,6 @@ function normalizeDescription(value) {
 
 app.use((req, res, next) => {
   const now = Date.now();
-  for (const [ip, value] of requestWindows.entries()) {
-    if (now - value.windowStart >= RATE_LIMIT_WINDOW_MS) {
-      requestWindows.delete(ip);
-    }
-  }
-
   const key = req.ip || req.socket?.remoteAddress || "unknown";
   const entry = requestWindows.get(key);
 
@@ -148,8 +152,12 @@ app.delete("/items/:id", async (req, res, next) => {
 });
 
 app.use((error, _req, res, _next) => {
+  if (res.headersSent) {
+    return _next(error);
+  }
+
   console.error("Unhandled error:", error);
-  res.status(500).json({ error: "Internal server error" });
+  return res.status(500).json({ error: "Internal server error" });
 });
 
 module.exports = app;

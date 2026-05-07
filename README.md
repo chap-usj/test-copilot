@@ -11,7 +11,7 @@ Set database connection variables as needed:
 - `PGHOST` (default: `localhost`)
 - `PGPORT` (default: `5432`)
 - `PGUSER` (default: `postgres`)
-- `PGPASSWORD` (default: `postgres`)
+- `PGPASSWORD` (optional; set when your PostgreSQL instance requires password authentication)
 - `PGDATABASE` (default: `postgres`)
 
 ## Run

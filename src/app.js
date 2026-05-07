@@ -1,4 +1,5 @@
 const express = require("express");
+const { rateLimit } = require("express-rate-limit");
 const { pool } = require("./db");
 
 const app = express();
@@ -7,17 +8,6 @@ app.use(express.json());
 
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 100);
-const requestWindows = new Map();
-
-const cleanupTimer = setInterval(() => {
-  const now = Date.now();
-  for (const [ip, value] of requestWindows.entries()) {
-    if (now - value.windowStart >= RATE_LIMIT_WINDOW_MS) {
-      requestWindows.delete(ip);
-    }
-  }
-}, RATE_LIMIT_WINDOW_MS);
-cleanupTimer.unref();
 
 function parseId(value) {
   const id = Number(value);
@@ -37,22 +27,23 @@ function isValidName(value) {
 }
 
 app.use((req, res, next) => {
-  const now = Date.now();
-  const key = req.ip || req.socket?.remoteAddress || "unknown";
-  const entry = requestWindows.get(key);
-
-  if (!entry || now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
-    requestWindows.set(key, { count: 1, windowStart: now });
-    return next();
+  if (!req.ip && !req.socket?.remoteAddress) {
+    console.warn("Request received without identifiable client IP");
   }
-
-  entry.count += 1;
-  if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
-    return res.status(429).json({ error: "Too many requests" });
-  }
-
-  return next();
+  next();
 });
+
+app.use(
+  rateLimit({
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    limit: RATE_LIMIT_MAX_REQUESTS,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, res) => {
+      res.status(429).json({ error: "Too many requests" });
+    },
+  })
+);
 
 app.get("/items", async (_req, res, next) => {
   try {

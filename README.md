@@ -14,6 +14,8 @@ Set database connection variables as needed:
 - `PGPASSWORD` (optional; set when your PostgreSQL instance requires password authentication)
 - `PGDATABASE` (default: `postgres`)
 - `TRUST_PROXY` (set to `true` if running behind a reverse proxy so IP-based rate limiting uses forwarded client IPs)
+- `RATE_LIMIT_WINDOW_MS` (default: `60000`)
+- `RATE_LIMIT_MAX_REQUESTS` (default: `100`)
 
 ## Run
 

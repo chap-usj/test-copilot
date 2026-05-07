@@ -13,6 +13,7 @@ Set database connection variables as needed:
 - `PGUSER` (default: `postgres`)
 - `PGPASSWORD` (optional; set when your PostgreSQL instance requires password authentication)
 - `PGDATABASE` (default: `postgres`)
+- `TRUST_PROXY` (set to `true` if running behind a reverse proxy so IP-based rate limiting uses forwarded client IPs)
 
 ## Run
 

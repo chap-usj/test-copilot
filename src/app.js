@@ -2,6 +2,7 @@ const express = require("express");
 const { pool } = require("./db");
 
 const app = express();
+app.set("trust proxy", process.env.TRUST_PROXY === "true");
 app.use(express.json());
 
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
@@ -29,6 +30,10 @@ function normalizeDescription(value) {
   }
 
   return value.trim() === "" ? null : value;
+}
+
+function isValidName(value) {
+  return typeof value === "string" && value.trim() !== "";
 }
 
 app.use((req, res, next) => {
@@ -86,7 +91,7 @@ app.post("/items", async (req, res, next) => {
   try {
     const { name } = req.body || {};
     const description = normalizeDescription(req.body?.description);
-    if (!name) {
+    if (!isValidName(name)) {
       return res.status(400).json({ error: "name is required" });
     }
 
@@ -110,7 +115,7 @@ app.put("/items/:id", async (req, res, next) => {
 
     const { name } = req.body || {};
     const description = normalizeDescription(req.body?.description);
-    if (!name) {
+    if (!isValidName(name)) {
       return res.status(400).json({ error: "name is required" });
     }
 

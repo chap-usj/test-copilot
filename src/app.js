@@ -4,10 +4,46 @@ const { pool } = require("./db");
 const app = express();
 app.use(express.json());
 
+const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
+const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 100);
+const requestWindows = new Map();
+
 function parseId(value) {
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
+
+function normalizeDescription(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return value.trim() === "" ? null : value;
+}
+
+app.use((req, res, next) => {
+  const now = Date.now();
+  for (const [ip, value] of requestWindows.entries()) {
+    if (now - value.windowStart >= RATE_LIMIT_WINDOW_MS) {
+      requestWindows.delete(ip);
+    }
+  }
+
+  const key = req.ip || req.socket?.remoteAddress || "unknown";
+  const entry = requestWindows.get(key);
+
+  if (!entry || now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    requestWindows.set(key, { count: 1, windowStart: now });
+    return next();
+  }
+
+  entry.count += 1;
+  if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
+    return res.status(429).json({ error: "Too many requests" });
+  }
+
+  return next();
+});
 
 app.get("/items", async (_req, res, next) => {
   try {
@@ -44,7 +80,8 @@ app.get("/items/:id", async (req, res, next) => {
 
 app.post("/items", async (req, res, next) => {
   try {
-    const { name, description = null } = req.body || {};
+    const { name } = req.body || {};
+    const description = normalizeDescription(req.body?.description);
     if (!name) {
       return res.status(400).json({ error: "name is required" });
     }
@@ -67,7 +104,8 @@ app.put("/items/:id", async (req, res, next) => {
       return res.status(400).json({ error: "id must be a positive integer" });
     }
 
-    const { name, description = null } = req.body || {};
+    const { name } = req.body || {};
+    const description = normalizeDescription(req.body?.description);
     if (!name) {
       return res.status(400).json({ error: "name is required" });
     }
@@ -110,6 +148,7 @@ app.delete("/items/:id", async (req, res, next) => {
 });
 
 app.use((error, _req, res, _next) => {
+  console.error("Unhandled error:", error);
   res.status(500).json({ error: "Internal server error" });
 });
 

@@ -19,11 +19,17 @@ function normalizeDescription(value) {
     return null;
   }
 
-  return value.trim() === "" ? null : value;
+  const trimmedValue = value.trim();
+  return trimmedValue === "" ? null : trimmedValue;
 }
 
-function isValidName(value) {
-  return typeof value === "string" && value.trim() !== "";
+function normalizeName(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue === "" ? null : trimmedValue;
 }
 
 app.use((req, res, next) => {
@@ -80,9 +86,9 @@ app.get("/items/:id", async (req, res, next) => {
 
 app.post("/items", async (req, res, next) => {
   try {
-    const { name } = req.body || {};
+    const name = normalizeName(req.body?.name);
     const description = normalizeDescription(req.body?.description);
-    if (!isValidName(name)) {
+    if (!name) {
       return res.status(400).json({ error: "name is required" });
     }
 
@@ -104,9 +110,9 @@ app.put("/items/:id", async (req, res, next) => {
       return res.status(400).json({ error: "id must be a positive integer" });
     }
 
-    const { name } = req.body || {};
+    const name = normalizeName(req.body?.name);
     const description = normalizeDescription(req.body?.description);
-    if (!isValidName(name)) {
+    if (!name) {
       return res.status(400).json({ error: "name is required" });
     }
 
